@@ -262,7 +262,7 @@ da <- unlist(xs$ES_Load_DayAhead)
 act <- unlist(xs$ES_Load_Actual)
 date <- xs$DateTime
 
-#SEcond issue: Some lists are containing 2 obs
+#Second issue: Some lists are containing 2 obs
 table(sapply(xs$ES_Load_DayAhead,length))
 table(sapply(xs$ES_Load_Actual,length))
 
@@ -272,8 +272,8 @@ which(sapply(xs$ES_Load_DayAhead,length)==2)
 
 
 
-#Third issue Frequency about 2021 data is in 15min freq
-#We should agregate it to hourly frequncy
+#3rd issue: The frequency is changing on the year 2021 15mins. Before that it was hourly frequency.
+
 
                                                                                                       ))
 
