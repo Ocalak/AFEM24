@@ -1,0 +1,14 @@
+#Is it possible to work with Python and R. An example GAMS is not avaliable in Python.
+
+#How should we integrate city and holiday information into the model to improve forecast accuracy?
+
+
+For example, in Spain, it is very complex to include in the prediction model the different holidays [1], some of a national nature that affect the whole system and others of a regional and local nature that affect only part of it.
+These holidays usually are associated with a specific date (May 1st, for example) and are celebrated each year on a different day of the week. The impact on the demand for a holiday on a Monday is very different than when the same holiday is celebrated on a Tuesday or Wednesday. Considering all these details is essential and requires the use of hundreds of parameters in the Spanish model of hourly prediction [2].
+
+
+  
+                                                            
+References:                                                            
+[1] López, M.; Sans, C.; Valero, S.; Senabre, C. Classification of Special Days in Short-Term Load Forecasting: The Spanish Case Study. Energies 2019, 12, 1253.
+[2] Cancelo, J.R.; Espasa, A.; Grafe, R. Forecasting the electricity load from one day to one week ahead for the Spanish system operator. Int. J. Forecast. 2008, 24, 588–602.
