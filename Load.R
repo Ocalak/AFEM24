@@ -245,52 +245,7 @@ weather_forecasts <- weather_forecasts %>%
 
 # Close the connection
 dbDisconnect(db)
-# %%
 
-
-install.packages("FAIRmaterials")
-library(FAIRmaterials)
-
-#First Issue: replace Nulls with NA
-xs <- replace_null_recursive(data)
-####
-#Unlist the load forecasts and actuals
-#xsdata <- data_frame("DateTime"=xs$DateTime,"Load_DA"=unlist(xs$ES_Load_DayAhead),
-                  # "Load_Act"=unlist(xs$ES_Load_Actual))
-
-
-
-#Second issue: Some lists are containing 2 obs
-table(sapply(xs$ES_Load_DayAhead,length))
-table(sapply(xs$ES_Load_Actual,length))
-
-
-which(sapply(xs$ES_Load_Actual,length)==2)
-which(sapply(xs$ES_Load_DayAhead,length)==2)
-
-
-idx <- which(sapply(xs$ES_Load_Actual,length)==2)
-which(sapply(xs$ES_Load_DayAhead,length)==2)
-
-#Fix the list which contains two obs. 
-for (i in idx) {
-  xs$ES_Load_DayAhead[i] <- mean(unlist(xs$ES_Load_DayAhead[i]))
-  xs$ES_Load_Actual[i] <- mean(unlist(xs$ES_Load_Actual[64777]))
-  
-  }
-
-
-
-
-data_df <- data.frame("DateTime"=xs$DateTime,"Load_DA"=xs$ES_Load_DayAhead,"Load_Act"=xs$ES_Load_Actual)
-
-
-
-
-#3rd issue: The frequency is changing on the year 2021 15mins. Before that it was hourly frequency.
-
-
-                                                                                                      ))
 
 
 
