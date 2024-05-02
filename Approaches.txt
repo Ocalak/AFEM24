@@ -1,0 +1,9 @@
+-What are the issues with the modelling of the holidays. (Spain)
+
+Types of Holidays: 
+
+Fixed days: Easter Monday,Good Friday, etc.
+
+Fixed dates: Xmas = 25.12.xxxx, New year = 01.01.xxxx, etc.
+
+
