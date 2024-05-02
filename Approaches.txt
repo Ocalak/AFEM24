@@ -7,5 +7,5 @@ Fixed days: Easter Monday,Good Friday, etc.
 Fixed dates: Xmas = 25.12.xxxx, New year = 01.01.xxxx, etc.
 
 1) Usually on the day before and after public holidays, exhibit different load profile from that of normal days. 
-For example: Check the pdf "28feb.pdf".
+
 
