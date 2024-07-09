@@ -1,9 +1,7 @@
 gamlss_validation <- function(data,window_l,dist,){
   #Valdiaiton is 365 days. I fit the model every 30 days 
-  
-for (t in inx) {
-  
-  Y <- model.matrix(~(Hod+Hoy+How+HolFix+HolFlx+XHol+Temp_Lag2+Temp_Lag4+Temp_Lag24+Temp_ACT+Temp_Lag1+
+
+   Y <- model.matrix(~(Hod+Hoy+How+HolFix+HolFlx+XHol+Temp_Lag2+Temp_Lag4+Temp_Lag24+Temp_ACT+Temp_Lag1+
                         Temp_Lag168 +Load_Lag168+ Load_Lag144+Load_Lag48+Load_Lag24+Temp_max+Temp_min),data=data[(window_l)+(t*24),])
   
   ultra1 <- data.frame("Load_DA"=data$Load_DA[(window_l)+(t*24)], Y[,-1])
@@ -36,11 +34,12 @@ for (t in inx) {
   #idx <- length(unique(yday(data$DateTime[43089:51848])))# == "2023-12-01 00:00:00")
   
   for (i in 0:29) {
-    val_NO_mu1sd1[i*2+1,1:168] <-  predictAll(new_model,newdata=data[(43809+t*24+i*24):(43976+t*24+i*24),])$mu[1:168]%>%exp()
-    val_NO_mu1sd1[i*2+2,1:168] <-  predictAll(new_model,newdata=data[(43089+t*24+i*24):(43256+t*24+i*24),])$sigma[1:168]%>%exp()
+    pred <-  predictAll(new_model,newdata=data[(43809+t*24+i*24):(43976+t*24+i*24),])
+    predictions[i*2+1,1:168] <-  pred$mu[1:168]%>%exp()
+    predictions[i*2+2,1:168] <-  pred$sigma[1:168]%>%exp()
   }
-  val_NO_mu1sd1 <<- val_NO_mu1sd1 %>%as.data.frame()%>%t()
-  write_csv(val_NO_mu1sd1,file= paste0("~/Desktop/AFEM24/NO-VAL/NO_VAL_PRE",t,".csv"))
+  predictions <<- t(predictions) %>%as.data.frame()%>%t()
+  #write_csv(val_NO_mu1sd1,file= paste0("~/Desktop/AFEM24/NO-VAL/NO_VAL_PRE",t,".csv"))
 }
 
 
