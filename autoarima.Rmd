@@ -1,0 +1,282 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Auto-arma
+```{r}
+window_l <- 169:43088
+horizon <- 168
+data <- lassodf
+pinball <- function(X, y, tau) t(t(y - X) * tau) * (y - X > 0) + t(t(X - y) * (1 - tau)) * (y - X < 0)
+TAU <- seq(0.05,0.95,0.05)
+auto_aarma <- function(data,horizon,window_l,TAU){
+  
+  fita <- auto.arima(train_df[window_l,"Load_ACT"])
+  pre <- c()
+  
+  pre<- forecast::forecast(fita,h=168)#$mean[1:168]
+  predict(new_model,newdata = newdflasso[43088:43255,"Load_ACT"])
+  
+  sd <- (pre$upper[,1] - pre$lower[,1]) / (2 * qnorm(.5 + pre$level[1] / 200))
+  
+ QUANTILES <- t(sapply(1:168, function(i) qnorm(TAU, pre$mean[i], sd[i])))
+ 
+ pb <- pinball(QUANTILES,data[(max(window_l)+1):(max(window_l)+168),"Load_ACT"],TAU)
+ 
+ pb <- colMeans(pb)
+ 
+return(pb)
+}
+
+
+arma_f <- list()
+
+idx <- length(unique(yday(train_df$DateTime[51679:nrow(train_df)])))
+for (t in 0:(idx-8)) {
+  arma_f[[t+1]] <- auto_aarma(train_df,window_l = (window_l+t*24),horizon = 168,TAU=TAU)
+}
+
+
+x3 <- pinball(Qhat5,train_df[(max(window_l)+2):(max(window_l)+169),"Load_ACT"],TAU)
+
+pinball <- function(X, y, tau) t(t(y - X) * tau) * (y - X > 0) + t(t(X - y) * (1 - tau)) * (y - X < 0)
+###############
+
+#Here is the forecast outputs
+Qlist <- list(QUANTILES, Qhat4)
+
+
+#### ####
+PBlist <- lapply(Qlist, function(Qhat) pinball(Qhat,train_df[(max(window_l)+1):(max(window_l)+168),"Load_ACT"], TAU))
+#Overall all pb 
+lapply(PBlist, mean)
+
+##########
+meant <- matrix(nrow = 358,ncol=19)
+spar <- 0
+for (t in 1:19) {
+  for (i in 1:length(gam_1)) {
+  meant[i,t] <-  gam_1[[i]][t]
+  }
+}
+meanr <- matrix(nrow = 358,ncol=19)
+spar <- 0
+for (t in 1:19) {
+  for (i in 1:length(arma_v)) {
+  meanr[i,t] <-  arma_v[[i]][t]
+  }
+}
+
+save(arma_f,file="autoarmaresult.RData")
+
+plot(colMeans(meant),ylim=c(100,1700))
+lines(colMeans(meanr),col="red")
+
+
+gam_1
+###Validation Phase
+
+
+arma_v <- list()
+
+idx <- length(unique(yday(lassodf$DateTime[42919:51679])))
+for (t in 0:(idx-8)) {
+  arma_v[[t+1]] <- auto_aarma(lassodf,window_l = (169:42919+t*24),horizon = 168,TAU=seq(0.05,0.95,0.05))
+}
+
+save(arma_v,file="~/autoarmaval.RData")
+
+```
+
+
+
+```{r gam, message = F}
+library(mgcViz)
+library(forecast)
+train_df <- df_dst %>%mutate(hod = hour(DateTime),
+                             dow =wday(DateTime) - 1,
+         how = ((wday(DateTime) - 1) * 24 + hod),
+         hoy = ((yday(DateTime)-1)*24+hod),
+                                 Temp_Lag1 = dplyr::lag(Temp_ACT,1),
+                             smt_temp = ets(Temp_ACT)$fitted,
+                 Temp_Lag2 = dplyr::lag(Temp_ACT,2),
+                 Temp_Lag3 = dplyr::lag(Temp_ACT,3),
+                 Temp_Lag24 = dplyr::lag(Temp_ACT,24),
+                  Load_Lag168 = dplyr::lag(Load_ACT,168),
+                 #Load_Lag144 = dplyr::lag(Load_ACT,144),
+                 #Load_Lag120 = dplyr::lag(Load_ACT,120),
+                 #Load_Lag48 = dplyr::lag(Load_ACT,96),
+                 #Load_Lag72 = dplyr::lag(Load_ACT,72),
+                 #Load_Lag48 = dplyr::lag(Load_ACT,48),
+                 Load_Lag24 = dplyr::lag(Load_ACT,24),
+                 #Load_Lag8 = dplyr::lag(Load_ACT,8),
+                 #Load_Lag7 = dplyr::lag(Load_ACT,7),
+                 #Load_Lag6 = dplyr::lag(Load_ACT,6),
+                 #Load_Lag5 = dplyr::lag(Load_ACT,5),
+                 #Load_Lag4 = dplyr::lag(Load_ACT,4),
+                 #Load_Lag3 = dplyr::lag(Load_ACT,3),
+                 #Load_Lag2 = dplyr::lag(Load_ACT,2),
+                 Load_Lag1 = dplyr::lag(Load_ACT,1),
+         Xhol,
+         HolFix,
+         HolFlx)
+
+train_df <- train_df%>%na.omit()
+
+
+# Specify knots
+knots <- list(Hoy = c(seq(0, 100, length.out = 10), # Before June
+                      #seq(4000, 7000, length.out = 15), # Around June
+                      #seq(7000, 8500, length.out = 15), # Between June and Christmas
+                      seq(8500, 8760, length.out = 10))) # Around Christmas
+
+
+ll <- bam(Load_ACT ~ s(Temp_ACT,k=20,bs="cr")+s(smt_temp,k=20,bs='cr')+
+  s(hoy, bs = "cc",k=100) +#s(how,bs="cr",k=160)+
+  Load_Lag1+Load_Lag24+Load_Lag168+Hol+Xhol,
+  data=train_df[1:10000,],method="REML",knots=knots)
+
+
+form <- Load_ACT~s(Temp_ACT,k=10,bs='cr') + s(Temp_Lag1,k=10,bs='cr') + 
+        s(hoy, bs = "cr",k=100) +s(how,bs="cr",k=168)+ s(hod,k=24,bs="cc")+
+        s(Load_Lag1,bs="cr",k=8)+Load_Lag24+Load_Lag168+Xhol+s(HolFlx,k=6,bs="cc")+s(HolFix,bs="cr",k=12)
+
+
+fit3 <- bam(form,
+  data=train_df[1:42920,],method="REML",gamma=0.01)
+plot(fit3)
+
+
+#Validation fit
+#30*24 Fit model every 30 days
+
+plot(1:168,predict(fit2,train_df[42920:(42920+167),],se.fit=TRUE)$fit,type="l")
+lines(1:168,train_df[42920:(42920+167),2],col="red")
+lines(1:168,predict(fit3,train_df[42920:(42920+167),],se.fit=TRUE)$fit,col="blue")
+
+window_l_val <- 169:42919
+horizon <- 168
+
+
+
+
+
+gam_nr <- function(data,window_l_val){
+  TAU = seq(0.05,0.95,0.05)
+  pinball <- function(X, y, tau) t(t(y - X) * tau) * (y - X > 0) + t(t(X - y) * (1 - tau)) * (y - X < 0)
+    pb_l <- list()
+  idx <- length(unique(yday(train_df$DateTime[max(window_l_val):(51679)])))#358
+   form <- Load_ACT~s(Temp_ACT,k=10,bs='cr') + s(Temp_Lag1,k=10,bs='cr') + 
+        s(hoy, bs = "cr",k=100) +s(how,bs="cr",k=168)+ s(hod,k=24,bs="cc")+
+        s(Load_Lag1,bs="cr",k=8)+Load_Lag24+Load_Lag168+Xhol+s(HolFlx,k=6,bs="cc")+s(HolFix,bs="cr",k=8)
+  seqx <- c(1:(idx-7))
+  for (i in 0:(length(seqx)-1)) {
+    if (i < 30) {# offset <- flo0r(i/30) * (i < 360)
+        offset <- 0
+    } else if (i < 60) {
+        offset <- 30 * 24
+    } else if (i < 90) {
+        offset <- 60 * 24
+    } else if (i < 120) {
+        offset <- 90 * 24
+    } else if (i < 150) {
+        offset <- 120 * 24
+    } else if (i < 180) {
+        offset <- 150 * 24
+    } else if (i < 210) {
+        offset <- 180 * 24
+    } else if (i < 240) {
+        offset <- 210 * 24
+    } else if (i < 270) {
+        offset <- 240 * 24
+    } else if (i < 300) {
+        offset <- 270 * 24
+    } else if (i < 330) {
+        offset <- 300 * 24
+    } else if (i < 360) {
+        offset <- 330 * 24
+    }
+    fit <- bamV(form, data = data[(window_l_val + offset),])
+    pred <- predict(fit, data[(max(window_l_val) + i * 24 + 1):(max(window_l_val) + i * 24 + 168),], se.fit = TRUE)
+    pre_m <- pred$fit
+    pre_sd <- pred$se.fit
+    QUANTILES <- t(sapply(1:168, function(i) qnorm(TAU, pre_m[i], pre_sd[i])))
+    pb <- pinball(QUANTILES,data[(max(window_l_val)+i*24+1):(max(window_l_val)+i*24+168),"Load_ACT"],TAU)
+    pb <- colMeans(pb)
+    pb_l[[(i+1)]] <- pb
+  }
+ return(pb_l) 
+}
+
+gam_1 <- gam_nr(data=train_df,window_l_val =  169:42919)
+
+
+save(gam_1,file="~/gam1_val.RData")
+
+
+```
+
+2. Look for patterns in the residuals conditional mean
+```{r edf2, message = F}
+pl <- check1D(fit2, list("Temp_ACT", "Temp_Lag1","hoy","hod", "HolFlx","HolFix","how")) + l_gridCheck1D(gridFun = mean, stand = "sc")
+print(pl, pages = 1)
+```
+
+
+
+
+```{r}
+# Install and load necessary packages
+install.packages("rugarch")
+
+
+library(rugarch)
+library(forecast)
+library(tseries)
+
+# Example data (replace with your own data)
+order_AG <- function(x,window_l){
+  opt_model <- auto.arima(x[window_l],max.p =500,max.q = 0,stationary=FALSE,seasonal=TRUE,ic="aic",allowmean = TRUE)
+  para_grid <- expand.grid("ARCH"=1:2,"GARCH"=1:2)
+  aic <- c()
+  for (i in 1:nrow(para_grid)) {
+    spec <- ugarchspec(variance.model = list(model="sGARCH",garchOrder=c(para_grid[[i,1]],para_grid[[i,2]])),
+                       mean.model = (list(armaOrder = c(opt_model$arma[1],opt_model$arma[2]),include.mean=TRUE)),
+                       distribution.model = "std")
+    modelgarch <- ugarchfit(spec,x[window_l],optim=2500)
+    #SAve the AIC of each armagarch.
+    aic[i] <- infocriteria(modelgarch)[1]
+    
+  }
+  #get smallest AICscore and respectvly the oreders
+  opt_parameters <- c(opt_model$arma[1],opt_model$arma[2],para_grid[which.min(aic),][1],para_grid[which.min(aic),][2])
+  return(opt_parameters)
+}
+
+norm_order <- order_AG(lassodf$Load_DA,34000:43088)
+jsu_order <- order_AG(lassodf$Load_ACT,34000:43088)
+std_order <- order_AG(train_df$Load_ACT,window_l)
+
+#fit ARMA-GARCH function
+fit_models <- function(x,order,window_l_val){
+  spec <- ugarchspec(variance.model = list(model="sGARCH",garchOrder=c(1,1)),
+                     mean.model = list(armaOrder = c(18,1,0),include.mean=TRUE),
+                     distribution.model = "norm")
+  fit<- ugarchfit(spec,x[window_l_val,"Load_DA"])
+  return(fit)
+}
+     fit<- ugarchfit(spec,x[window_l_val,])
+norm_fit <- fit_models(lassodf,norm_order,40000:43088)
+jsu_fit <- fit_models(train_df,jsu_order)
+std_fit <- fit_models(train_df,std_order)
+
+
+spec_norm <- ugarchspec(variance.model = list(model="sGARCH",garchOrder=c(norm_order[[3]],norm_order[[4]])),
+                       mean.model = (list(armaOrder = c(norm_order[[1]],norm_order[[2]]),include.mean=TRUE)),
+                       distribution.model = "norm")
+
+
+mod_norm <- ugarchroll(spec_norm,train_df,n.ahead = 1,n.start = max(window_l_val),refit.every = 168,refit.window = "recursive",calculate.VaR = TRUE,VaR.alpha = 0.05,keep.coef = TRUE)
+
+
+```
