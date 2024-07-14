@@ -46,11 +46,11 @@ f.quantile_ARX_normal <- function(X,Y, time, H, TAU) {
   return(scores) 
 }
 
-REST_ARX <-  matrix(nrow=177,ncol=2)
-for (t in 0:177) {
-REST_ARX[t,] <- f.quantile_ARX_normal(X=newdflasso$Load_DA[(34328:51848)+t*24],
-                                   Y=newdflasso$Load_ACT[51848+t*24+1:168],
-                                   time=newdflasso$DateTime[t*24+(34328:51848)],H=168,
+REST_ARX <-  matrix(nrow=180,ncol=2)
+for (t in 0:1179) {
+REST_ARX[t,] <- f.quantile_ARX_normal(X=newdflasso$Load_DA[(window_l)+t*24],
+                                   Y=newdflasso$Load_ACT[max(window_l)+t*24+1:168],
+                                   time=newdflasso$DateTime[t*24+(window_l)],H=168,
                                    TAU)}
 
 
