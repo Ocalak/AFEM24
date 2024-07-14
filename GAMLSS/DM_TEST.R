@@ -1,5 +1,6 @@
-# Compare models using DM-test function
-# ==================================================================
+#GET_PB Score
+read_csv("~/Desktop/PB_SCORE_TEST.csv")#PB_TEST
+
 
 # DM test function
 dm_test <- function(error_a, error_b, hmax = 1, power = 1) {
@@ -92,10 +93,4 @@ dm_results_tible %>%
     breaks = seq(from = 0, to = .1, by = 0.01),
     limits = c(0, .1),
     oob = scales::squish
-  )
-# Test statistics
-dm_results_tible %>%
-  ggplot(aes(x = mod_b, y = reorder(mod_a, desc(mod_a)), fill = t_stat)) +
-  geom_raster()
-# ==================================================================
-# /end Compare models using DM-test function
+  )+labs(x=" Models",y=" ",)+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
