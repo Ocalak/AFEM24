@@ -4,9 +4,9 @@
 
 window_l <- 8048:43088# 2018.12.01 to 2023-12.01
 
-+
+
 Y <- model.matrix(~(Hod+Hoy+How+HolFix+HolFlx+XHol+Temp_Lag24+Temp_Lag1+Temp_Lag2+Temp_Lag3+Temp_mean3+
-                    Load_Lag168+Load_Lag144+Load_Lag48+Load_Lag24+Temp_max+Temp_min+trend),
+                    Load_Lag168+Load_Lag144+Load_Lag48+Load_Lag24+Temp_max+Temp_min+trend+(How+Hoy+Hod)^2),
                   data=newdflasso[(window_l)+720*K,])      #720 = 30 days * 24 hours, K is from 0 to 4 = December,January.March,April.May
 
   sample_df <- data.frame("Load_DA"=newdflasso$Load_DA[(25568:43088)+720*K)], Y[,-1])
@@ -31,16 +31,15 @@ pinball <- function(X, y, tau) t(t(y - X) * tau) * (y - X > 0) + t(t(X - y) * (1
 
 
        
-       #loop for 30 days
+#loop for 30 days. We do that 12 times for validation set and 6 times for test set.
 for (zx in 0:29) {
   
 #}
 #zx <- 0
 H <- 168
 window_l = (25568+zx*24):(43088+zx*24)
-min(window_l)
-max(window_l)
-#f.distributionalReg_ARX_normal <- function(data,time, H, TAU,window_l) {#window_l = (25568+i*24):(43088+i*24) data <- newdflasso
+
+  
   X <- newdflasso$Load_DA[window_l]
   time.tmp.num <- as.numeric(data$DateTime[window_l])
   time.ext <- c(time.tmp.num, max(time.tmp.num) + 1:H * (3600 * 24) / S)
@@ -107,7 +106,8 @@ max(window_l)
     active.set <- match(LAGS.used.now, LAGS)
     Xid <- c(active.set, length(LAGS) + v_l-length(LAGS))
     DXREG <- cbind(Y = X, as.data.frame(head(XREG, length(X))[, Xid]))
-
+    
+#We add Load lags as linear term. we dont use smooth functions for them.
     formula_active <- paste("Y ~", paste(dimnames(DXREG)[[2]][active.set], collapse = "+"))
 
   # Generate the formula for inactive predictors using penalized splines with GAIC
@@ -140,6 +140,14 @@ max(window_l)
                                           rep(Xpredlss$sigma, length(TAU)),
                                          rep(Xpredlss$nu, length(TAU)),
                                          rep(Xpredlss$tau, length(TAU)))
+    # For normal dist
+  #QUANTILES[H.used[[i.used]], ] <- qnorm(rep(TAU, each = length(H.used[[i.used]])),rep(Xpredlss$mu, length(TAU)),rep(Xpredlss$sigma, length(TAU))) # For normal dist
+
+
+    #For Skewed t Dist 1
+  #QUANTILES[H.used[[i.used]], ] <- qST(rep(TAU, each = length(H.used[[i.used]])),rep(Xpredlss$mu, length(TAU)),rep(Xpredlss$sigma, length(TAU)),rep(Xpredlss$nu, length(TAU)),rep(Xpredlss$tau, length(TAU)))
+                                       
+    
        #Save parameters
       param[H.used[[i.used]], 1] <- Xpredlss$mu
       param[H.used[[i.used]], 2] <- Xpredlss$sigma
