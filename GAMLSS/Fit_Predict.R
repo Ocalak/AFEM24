@@ -130,6 +130,10 @@ window_l = (25568+zx*24):(43088+zx*24)
                  family = JSU(mu.link="log"),#Use NO for Normal dist, ST1 for Skewed t dist
                  method=RS(100),
                  control = contr)
+    
+    if(new_model$converge == FALSE){
+    refit(model)
+  }
   
     
     Xout <- as.data.frame(XREG[length(X) + H.used[[i.used]], Xid, drop = FALSE])
