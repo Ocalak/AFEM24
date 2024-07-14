@@ -1,38 +1,37 @@
-Y <- model.matrix(~(Hod+Hoy+How+HolFix+HolFlx+XHol+Temp_Lag4+Temp_Lag24+Temp_ACT+Temp_Lag1+Load_Lag168+Load_Lag144+Load_Lag48+Load_Lag24
-                   # +Temp_max
-                    +Temp_min+trend),data=newdflasso[(25568+720):(43088+720),])
 
-  sample_df <- data.frame("Load_DA"=newdflasso$Load_DA[(25568+720):(43088+720)], Y[,-1])
+
+#Same apllies for Validation Set###Valdiation set is from 2022.12.01 to 2023.12.01 ## 
+
+window_l <- 8048:43088# 2018.12.01 to 2023-12.01
+
++
+Y <- model.matrix(~(Hod+Hoy+How+HolFix+HolFlx+XHol+Temp_Lag24+Temp_Lag1+Temp_Lag2+Temp_Lag3+Temp_mean3+
+                    Load_Lag168+Load_Lag144+Load_Lag48+Load_Lag24+Temp_max+Temp_min+trend),
+                  data=newdflasso[(window_l)+720*K,])      #720 = 30 days * 24 hours, K is from 0 to 4 = December,January.March,April.May
+
+  sample_df <- data.frame("Load_DA"=newdflasso$Load_DA[(25568:43088)+720*K)], Y[,-1])
+
   contr <- gamlss.control(c.crit = 0.1)
   
   lasso_var_selec <- gamlss(Load_DA~gnet(x.vars=names(sample_df)[-c(1)],method = "IC", ICpen="BIC"),
                    sigma.fo= ~gnet(x.vars=  names(sample_df)[-c(1)],method = "IC", ICpen="BIC"),
                    nu.fo=~gnet(x.vars=  names(sample_df)[-c(1)],method = "IC", ICpen="BIC"),
                    tau.fo=~gnet(x.vars=  names(sample_df)[-c(1)],method = "IC", ICpen="BIC"),
-                   data=sample_df, family=JSU,method = RS(50),control=contr)
+                   data=sample_df, family=NO(mu.link="log"),method = RS(100),control=contr)
   
   
-   mu_formula <- paste("Load_DA ~", paste(paste0("pb(", names(which(tail(getSmo(  lasso_var_selec, "mu"), 1)[[1]]$beta != 0)), 
-                                                 " ,method='GAIC')"), collapse = " + "))
+ 
+#Print selected parameters
+ names(which(tail(getSmo(  lasso_var_selec, "mu"), 1)[[1]]$beta != 0))
+ names(which(tail(getSmo(  lasso_var_selec, "sigma"), 1)[[1]]$beta != 0)
+ names(which(tail(getSmo(  lasso_var_selec, "nu"), 1)[[1]]$beta != 0)
+ names(which(tail(getSmo(  lasso_var_selec, "tau"), 1)[[1]]$beta != 0)
+       
+pinball <- function(X, y, tau) t(t(y - X) * tau) * (y - X > 0) + t(t(X - y) * (1 - tau)) * (y - X < 0)
 
-   sigma_formula <- paste("~", paste(paste0("pb(", names(which(tail(getSmo(  lasso_var_selec, "sigma"), 1)[[1]]$beta != 0)),
-                                           ",method='GAIC')"), collapse = " + "))
-   
-   nuu_formula <- paste("~", paste(paste0("pb(", names(which(tail(getSmo(  lasso_var_selec, "nu"), 1)[[1]]$beta != 0)),
-                                           ",method='GAIC')"), collapse = " + "))
-   tau_formula <- paste("~", paste(paste0("pb(", names(which(tail(getSmo(  lasso_var_selec, "tau"), 1)[[1]]$beta != 0)),
-                                           ",method='GAIC')"), collapse = " + "))
 
-  mu_formula <- as.formula(mu_formula)
-  sigma_formula <- as.formula(sigma_formula)
-  nu_formula <- as.formula(nu_formula)
-  tau_formula <- as.formula(tau_formula)
-  
-  a <- names(which(tail(getSmo(  lasso_var_selec, "mu"), 1)[[1]]$beta != 0))
-  b <- names(which(tail(getSmo(  lasso_var_selec, "sigma"), 1)[[1]]$beta != 0))
-  c <- names(which(tail(getSmo(  lasso_var_selec, "nu"), 1)[[1]]$beta != 0))
-  d <- names(which(tail(getSmo(  lasso_var_selec, "tau"), 1)[[1]]$beta != 0))
-
+       
+       #loop for 30 days
 for (zx in 0:29) {
   
 #}
@@ -72,12 +71,12 @@ max(window_l)
  
   
   
-  LAGS <- c(24,48,168)
+  LAGS <- c(24,48,144,168)#include here the lags
   get.lagged <- function(lag, Z) c(rep(NA, lag), Z[1:(length(Z) + pmin(0, H - lag))], rep(NA, max(0, H - lag))) ## caution! modified
   XLAG.ext <- sapply(LAGS, get.lagged, Z = X)
   dimnames(XLAG.ext)[[2]] <- paste0("L", LAGS)
   
-  XREG <- cbind(XLAG.ext,HolFix,HolFlx,Hoy,Hod,How,XHol,Temp_Lag24,trend)
+  XREG <- cbind(XLAG.ext,HolFix,HolFlx,Hoy,Hod,How,XHol,Temp_Lag24,trend)#Include all the selected paramteters here wothput adding the lags I add the lags abov
   v_l <- ncol(XREG)
   
   
@@ -108,18 +107,27 @@ max(window_l)
     active.set <- match(LAGS.used.now, LAGS)
     Xid <- c(active.set, length(LAGS) + v_l-length(LAGS))
     DXREG <- cbind(Y = X, as.data.frame(head(XREG, length(X))[, Xid]))
+
+    formula_active <- paste("Y ~", paste(dimnames(DXREG)[[2]][active.set], collapse = "+"))
+
+  # Generate the formula for inactive predictors using penalized splines with GAIC
+    inactive_indices <- setdiff(seq_along(dimnames(DXREG)[[2]]), c(1, active.set))
+    formula_inactive <- paste0("pb(", dimnames(DXREG)[[2]][inactive_indices], ", method='GAIC')", collapse = " + ")
+
+    # Combine both formulas
+    full_formula <- paste(formula_active, "+", formula_inactive)
     
-    location_formula <- as.formula(paste("Y~",paste(paste0("pb(",dimnames(DXREG)[[2]][-1],",method='GAIC')", collapse = "+"))))
-    sigma_formula <- as.formula(paste("~",paste(paste0(dimnames(DXREG)[[2]][-1], collapse = "+"))))
-    nu_formula <-  as.formula(paste("~",paste(paste0(dimnames(DXREG)[[2]][-1], collapse = "+"))))
-    tau_formula <-as.formula(paste("~",paste(paste0(dimnames(DXREG)[[2]][-1], collapse = "+"))))
+    location_formula <- as.formula(full_formula)
+    sigma_formula <- as.formula(full_formula)
+    nu_formula <-  as.formula(full_formula)
+    tau_formula <-as.formula(full_formula)
     
     model <- gamlss(location_formula,
                     sigma.fo = sigma_formula,
                     nu.fo = nu_formula,
                     tau.fo = tau_formula,
                  data = na.omit(DXREG), 
-                 family = JSU,
+                 family = JSU(mu.link="log"),#Use NO for Normal dist, ST1 for Skewed t dist
                  method=RS(100),
                  control = contr)
   
@@ -132,24 +140,35 @@ max(window_l)
                                           rep(Xpredlss$sigma, length(TAU)),
                                          rep(Xpredlss$nu, length(TAU)),
                                          rep(Xpredlss$tau, length(TAU)))
+       #Save parameters
+      param[H.used[[i.used]], 1] <- Xpredlss$mu
+      param[H.used[[i.used]], 2] <- Xpredlss$sigma
+      param[H.used[[i.used]], 3] <-  Xpredlss$nu
+      param[H.used[[i.used]], 4] <- Xpredlss$tau
     
     }
+
+  
+  y <- newdflasso$Load_ACT[max(window_l)+1:168]
   
   QUANTILES.sorted <- t(apply(QUANTILES, 1, sort))
-  
-  #return(exp(QUANTILES.sorted))
-  QQE <- exp(QUANTILES.sorted)
-  
- paste0("write.csv(data.frame(QQE),file='~/Desktop/AFEM24/JSU-VAL/Q",i+1,".csv')")
- 
-#}
-#pinball <- function(X, y, tau) t(t(y - X) * tau) * (y - X > 0) + t(t(X - y) * (1 - tau)) * (y - X < 0)
 
- y <- newdflasso$Load_ACT[max(window_l)+1:168]
   
-  Qlist <- list(QQE)
+  Qlist <- list(QUANTILES.sorted)
+  
+  PBlist <- lapply(Qlist, function(Qhat) pinball(QQE, y, TAU))
+
+  link1 <-  paste0("~/Desktop/AFEM24/SHASH-VAL/V_Param_JSU",zx+1+30*dp,".csv")
+  write.csv(data.frame(param),file=link1,row.names = FALSE)
+
   
   PBlist <- lapply(Qlist, function(Qhat) pinball(QQE, y, TAU))
 
   PB_LOSS[i+1] <- lapply(PBlist, mean)[[1]]
+
+
+  if(zx == 29){
+      link3 = paste0("~/Desktop/AFEM24/SHASH-VAL/VAL_PB_SHASH",zx+1+30*dp,".csv")
+      write.csv(data.frame(PB_LOSS),file=link3,row.names = FALSE)
+  }
 }
